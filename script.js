@@ -13,13 +13,15 @@ let world = Array.from({ length: 4 }, () => Array(4).fill("empty")); // 4x4 grid
 let goldCollected = false; // Track if the player has collected the gold
 let isGameRunning = false; // Track if the AI is currently moving
 let pathToGold = []; // Array to store the path taken to collect gold
+let pathToStart = []; // Array to store the path to return to start
+let goldPosition = null; // Track gold's position
 
 // Generate random world map
 function generateRandomWorld() {
     world = Array.from({ length: 4 }, () => Array(4).fill("empty")); // Empty world grid
 
     // Randomly place Wumpus, Gold, and Pits, avoiding overlap
-    const positions = shuffleArray([ 
+    const positions = shuffleArray([
         { x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }, { x: 0, y: 3 },
         { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 1, y: 3 },
         { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 },
@@ -38,7 +40,9 @@ function generateRandomWorld() {
 
     agentPosition = { x: 3, y: 0 }; // Agent starts at (3,0)
     agentDirection = "right"; // Agent always starts facing right
+    goldPosition = goldPos; // Store the position of the gold
     pathToGold = []; // Reset path to gold
+    pathToStart = []; // Reset path to start
 }
 
 // Shuffle an array utility function
@@ -62,7 +66,7 @@ function drawWorld() {
         for (let col = 0; col < world[row].length; col++) {
             let cell = document.createElement("div");
             cell.classList.add("cell");
-            
+
             if (row === agentPosition.x && col === agentPosition.y) {
                 cell.classList.add("agent");
             } else if (world[row][col] === "wumpus") {
@@ -80,13 +84,13 @@ function drawWorld() {
     updateArrowCount(); // Update arrow count each time the world is drawn
 }
 
-// Find the shortest path to the gold using BFS
-function findShortestPathToGold(startX, startY) {
+// Find the shortest path to the goal (gold or start) using BFS
+function findShortestPath(startX, startY, goalX, goalY) {
     const directions = [
         { dx: -1, dy: 0 }, // Up
         { dx: 1, dy: 0 },  // Down
         { dx: 0, dy: -1 }, // Left
-        { dx: 0, dy: 1 },  // Right
+        { dx: 0, dy: 1 }   // Right
     ];
 
     const queue = [{ x: startX, y: startY, path: [] }];
@@ -96,7 +100,7 @@ function findShortestPathToGold(startX, startY) {
     while (queue.length > 0) {
         const { x, y, path } = queue.shift();
 
-        if (world[x][y] === "gold") {
+        if (x === goalX && y === goalY) {
             return path;
         }
 
@@ -118,15 +122,14 @@ function findShortestPathToGold(startX, startY) {
 // Move the agent to the next position in the path
 function moveAgent(nextPosition) {
     agentPosition = { x: nextPosition.x, y: nextPosition.y };
-    pathToGold.push(nextPosition);
-    checkCell();
     drawWorld();
+    checkCell();
 }
 
 // Check the contents of the current cell (including gold collection)
 function checkCell() {
     const currentCell = world[agentPosition.x][agentPosition.y];
-    
+
     if (currentCell === "pit") {
         alert("You fell into a pit! Game over.");
         resetGame();
@@ -143,14 +146,45 @@ function checkCell() {
     }
 }
 
+// Alpha-Beta Pruning function for decision making
+function alphabeta(world, depth, alpha, beta, maximizingPlayer) {
+    // Base case: If max depth or game over
+    if (depth === 0 || isGameOver(world)) {
+        return evaluateState(world); // Evaluate the game state
+    }
+
+    const possibleMoves = getPossibleMoves(world, maximizingPlayer);
+
+    if (maximizingPlayer) {
+        let maxEval = -Infinity;
+        for (const move of possibleMoves) {
+            const newWorld = applyMove(world, move);
+            const eval = alphabeta(newWorld, depth - 1, alpha, beta, false);
+            maxEval = Math.max(maxEval, eval);
+            alpha = Math.max(alpha, eval);
+            if (beta <= alpha) break; // Beta cut-off
+        }
+        return maxEval;
+    } else {
+        let minEval = Infinity;
+        for (const move of possibleMoves) {
+            const newWorld = applyMove(world, move);
+            const eval = alphabeta(newWorld, depth - 1, alpha, beta, true);
+            minEval = Math.min(minEval, eval);
+            beta = Math.min(beta, eval);
+            if (beta <= alpha) break; // Alpha cut-off
+        }
+        return minEval;
+    }
+}
+
 // AI Move to collect gold and return to start
 function aiMove() {
     if (isGameRunning) return; // Prevent multiple clicks
-
     isGameRunning = true; // Set the game to running
 
     // Step 1: Find path to gold
-    const pathToGoldResult = findShortestPathToGold(agentPosition.x, agentPosition.y);
+    const pathToGoldResult = findShortestPath(agentPosition.x, agentPosition.y, goldPosition.x, goldPosition.y); // Find path to the gold
 
     if (pathToGoldResult.length > 0) {
         // Move agent step by step to the gold
@@ -161,6 +195,8 @@ function aiMove() {
             } else {
                 clearInterval(interval);
                 alert("AI collected the gold! Now returning to start.");
+                // After collecting gold, find the path back to start
+                pathToStart = findShortestPath(agentPosition.x, agentPosition.y, 3, 0);
                 returnToStart();
             }
         }, 1000); // Move every second
@@ -172,36 +208,66 @@ function aiMove() {
 
 // Return to starting position after collecting gold
 function returnToStart() {
-    const pathToStartResult = findShortestPathToGold(agentPosition.x, agentPosition.y);
-
-    if (pathToStartResult.length > 0) {
-        // Move agent step by step back to the start
+    if (pathToStart.length > 0) {
         const interval = setInterval(() => {
-            if (pathToStartResult.length > 0) {
-                const nextMove = pathToStartResult.shift();
+            if (pathToStart.length > 0) {
+                const nextMove = pathToStart.shift();
                 moveAgent(nextMove); // Move back to start
             } else {
                 clearInterval(interval);
-                alert("AI has returned to the start position.");
-                isGameRunning = false;
+                alert("AI has returned to the start point.");
+                isGameRunning = false; // Reset game running status
             }
         }, 1000); // Move every second
+    } else {
+        alert("No path to return to start.");
+        isGameRunning = false; // Reset game running status
     }
 }
 
-// Reset the game to initial state
-function resetGame() {
-    generateRandomWorld();
-    drawWorld();
-    goldCollected = false;
-    isGameRunning = false;
-    pathToGold = [];
-    updateArrowCount(); // Reset arrow count
+// Helper function to check if the game is over
+function isGameOver(world) {
+    return agentPosition.x === 3 && agentPosition.y === 0 && goldCollected;
 }
 
-// Initialize the world and game state
-generateRandomWorld();
-drawWorld();
+// Helper function to evaluate the game state
+function evaluateState(world) {
+    // You can add logic to evaluate the world's state (gold collected, dangers, etc.)
+    return goldCollected ? 100 : 0; // Basic evaluation: reward for gold collected
+}
 
-// Event listeners
-startButton.addEventListener("click", aiMove);
+// Get possible moves (basic for now, can be expanded)
+function getPossibleMoves(world, maximizingPlayer) {
+    const moves = [];
+    const directions = [
+        { dx: -1, dy: 0 }, // Up
+        { dx: 1, dy: 0 },  // Down
+        { dx: 0, dy: -1 }, // Left
+        { dx: 0, dy: 1 }   // Right
+    ];
+
+    directions.forEach(({ dx, dy }) => {
+        const newX = agentPosition.x + dx;
+        const newY = agentPosition.y + dy;
+
+        if (newX >= 0 && newX < 4 && newY >= 0 && newY < 4 && world[newX][newY] !== "pit" && world[newX][newY] !== "wumpus") {
+            moves.push({ x: newX, y: newY });
+        }
+    });
+
+    return moves;
+}
+
+// Apply a move and return the new world state
+function applyMove(world, move) {
+    const newWorld = JSON.parse(JSON.stringify(world)); // Deep copy of the world
+    agentPosition = move; // Update agent position
+    return newWorld;
+}
+
+// Start AI on button click
+startButton.addEventListener("click", () => {
+    generateRandomWorld();
+    drawWorld();
+    aiMove(); // Start AI action
+});
