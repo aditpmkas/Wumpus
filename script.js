@@ -199,94 +199,51 @@ function findGoldPosition() {
 
 // Return to starting position after collecting gold
 function returnToStart() {
-    const interval = setInterval(() => {
-        if (pathToGold.length === 0) {
-            alert("AI has returned to the start position.");
-            clearInterval(interval);
-            isGameRunning = false;
-            return;
-        }
-
-        // Get the last move in pathToGold (the move taken towards gold)
-        const lastMove = pathToGold.pop();
-        moveAgent(lastMove); // Move back to the last position
-    }, 1000); // Move every second
-}
-
-// Function to allow agent to attack the Wumpus
-function shootArrow() {
-    if (arrowCount === 0) {
-        alert("You have no more arrows!");
+    if (pathToGold.length === 0) {
+        alert("AI has returned to the start position.");
+        isGameRunning = false;
         return;
     }
 
-    let arrowHits = false;
+    const startX = 3;
+    const startY = 0;
+    const interval = setInterval(() => {
+        const availableMoves = getAvailableMoves();
 
-    // Check if the arrow hits the Wumpus based on the direction the agent is facing
-    if (agentDirection === "up") {
-        for (let x = agentPosition.x - 1; x >= 0; x--) {
-            if (world[x][agentPosition.y] === "wumpus") {
-                arrowHits = true;
-                world[x][agentPosition.y] = ""; // Wumpus is killed
-                break;
-            }
-        }
-    } else if (agentDirection === "down") {
-        for (let x = agentPosition.x + 1; x < world.length; x++) {
-            if (world[x][agentPosition.y] === "wumpus") {
-                arrowHits = true;
-                world[x][agentPosition.y] = ""; // Wumpus is killed
-                break;
-            }
-        }
-    } else if (agentDirection === "left") {
-        for (let y = agentPosition.y - 1; y >= 0; y--) {
-            if (world[agentPosition.x][y] === "wumpus") {
-                arrowHits = true;
-                world[agentPosition.x][y] = ""; // Wumpus is killed
-                break;
-            }
-        }
-    } else if (agentDirection === "right") {
-        for (let y = agentPosition.y + 1; y < world[agentPosition.x].length; y++) {
-            if (world[agentPosition.x][y] === "wumpus") {
-                arrowHits = true;
-                world[agentPosition.x][y] = ""; // Wumpus is killed
-                break;
-            }
-        }
-    }
+        // Find the next best move towards the start
+        const returnMove = availableMoves.find(move => 
+            move.x === startX && move.y === startY
+        );
 
-    arrowCount--; // Decrease arrow count
-    if (arrowHits) {
-        alert("You shot the Wumpus! It's dead.");
+        if (returnMove) {
+            moveAgent(returnMove); // Move back to start
+        } else if (availableMoves.length > 0) {
+            const randomMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            moveAgent(randomMove);
+        } else {
+            alert("No available moves!");
+            clearInterval(interval);
+            isGameRunning = false;
+        }
+    }, 1000); // Move every second
+}
+
+// Shoot an arrow to deal with the Wumpus
+function shootArrow() {
+    if (arrowCount > 0) {
+        arrowCount--;
+        updateArrowCount();
+        alert("Arrow shot at Wumpus!");
     } else {
-        alert("You missed the Wumpus.");
+        alert("No arrows left!");
     }
-    drawWorld(); // Redraw the world after shooting
 }
 
-// Reset the game by generating a new random world
-function resetGame() {
-    generateRandomWorld(); // Generate a new random world layout
-    arrowCount = 5; // Reset arrows to 5
-    goldCollected = false; // Reset gold collected status
-    pathToGold = []; // Reset path to gold
-    drawWorld();
-}
-
-// Initialize the world grid for the first time
-generateRandomWorld();
-drawWorld();
-
-// Start the AI when the button is clicked
-startButton.addEventListener("click", aiMove);
-
-// Add keyboard controls for W (up), A (left), S (down), D (right), Space (attack)
-document.addEventListener("keydown", function(event) {
-    if (event.key === "w" || event.key === "W") moveAgent({ x: agentPosition.x - 1, y: agentPosition.y, direction: "up" });
-    if (event.key === "a" || event.key === "A") moveAgent({ x: agentPosition.x, y: agentPosition.y - 1, direction: "left" });
-    if (event.key === "s" || event.key === "S") moveAgent({ x: agentPosition.x + 1, y: agentPosition.y, direction: "down" });
-    if (event.key === "d" || event.key === "D") moveAgent({ x: agentPosition.x, y: agentPosition.y + 1, direction: "right" });
-    if (event.key === " ") shootArrow(); // Spacebar to shoot arrow
+// Add event listener to the start button
+startButton.addEventListener("click", () => {
+    if (!isGameRunning) {
+        generateRandomWorld(); // Generate a new random world on start
+        drawWorld(); // Draw the world with the agent
+        aiMove(); // Start AI movement
+    }
 });
