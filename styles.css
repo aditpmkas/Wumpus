@@ -1,0 +1,112 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    color: #333;
+    margin-top: 20px;
+}
+
+#game-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+#world-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 100px);
+    grid-template-rows: repeat(4, 100px);
+    gap: 5px;
+}
+
+.cell {
+    width: 100px;
+    height: 100px;
+    border: 2px solid #333;
+    background-color: #ddd;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+}
+
+.cell.agent {
+    background-color: lightgreen;
+}
+
+.cell.wumpus {
+    background-color: darkred;
+    color: white;
+}
+
+.cell.pit {
+    background-color: black;
+}
+
+.cell.gold {
+    background-color: gold;
+}
+
+#controls {
+    margin-top: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 18px;
+    margin: 5px;
+    cursor: pointer;
+    border: none;
+    background-color: #333;
+    color: white;
+    border-radius: 5px;
+}
+
+button:hover {
+    background-color: #555;
+}
+#arrow-count {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+/* Add this style for gold image */
+.cell.gold {
+    background-image: url('gold.jpg'); /* Path to your image */
+    background-size: cover;
+    background-position: center;
+}
+/* Add this style for agent character */
+.cell.agent {
+    background-image: url('player.jpg'); /* Path to your character image */
+    background-size: cover;
+    background-position: center;
+}
+
+/* Style for empty cells (jalan) */
+.cell.hidden {
+    background-image: url('block.jpg'); /* Path to your block image */
+    background-size: cover;
+    background-position: center;
+}
+
+/* Style for Wumpus character */
+.cell.wumpus {
+    background-image: url('wumpus.jpg'); /* Path to your Wumpus image */
+    background-size: cover;
+    background-position: center;
+}
+
+.cell.pit {
+    background-image: url('PIT.jpg'); /* Path to your Wumpus image */
+    background-size: cover;
+    background-position: center;
+}
