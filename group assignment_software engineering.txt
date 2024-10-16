@@ -1,0 +1,15 @@
+group assignment_software engineering
+
+member:
+Aditya Pamungkas (0012020300023)
+BAgus Eka Bagaskara (001202300164)
+Anugrah Ananda Rivai (001202000178)
+Putri DInam Nahdiyah (001202300048)
+
+here is the GitHub link :
+https://github.com/aditpmkas/OnlineShop.git
+
+
+the project link :
+https://drive.google.com/drive/folders/1_LrkwOP4etvAFxypfAeV6IAK3_Er85af?usp=sharing
+

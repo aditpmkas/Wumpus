@@ -100,7 +100,7 @@ button:hover {
 
 /* Style for Wumpus character */
 .cell.wumpus {
-    background-image: url('wumpus.jpg'); /* Path to your Wumpus image */
+    background-image: url('Wumpus.jpg'); /* Path to your Wumpus image */
     background-size: cover;
     background-position: center;
 }
