@@ -19,7 +19,7 @@ function generateRandomWorld() {
     world = Array.from({ length: 4 }, () => Array(4).fill("empty")); // Empty world grid
 
     // Randomly place Wumpus, Gold, and Pits, avoiding overlap
-    const positions = shuffleArray([
+    const positions = shuffleArray([ 
         { x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }, { x: 0, y: 3 },
         { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 1, y: 3 },
         { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 },
@@ -80,38 +80,45 @@ function drawWorld() {
     updateArrowCount(); // Update arrow count each time the world is drawn
 }
 
-// Check for hazards (wumpus or pit) around the agent
-function getAvailableMoves() {
-    const moves = [];
-
-    // Directions: {dx, dy, direction}
+// Find the shortest path to the gold using BFS
+function findShortestPathToGold(startX, startY) {
     const directions = [
-        { dx: -1, dy: 0, direction: "up" },    // Up
-        { dx: 1, dy: 0, direction: "down" },  // Down
-        { dx: 0, dy: -1, direction: "left" },  // Left
-        { dx: 0, dy: 1, direction: "right" }   // Right
+        { dx: -1, dy: 0 }, // Up
+        { dx: 1, dy: 0 },  // Down
+        { dx: 0, dy: -1 }, // Left
+        { dx: 0, dy: 1 },  // Right
     ];
 
-    for (const { dx, dy, direction } of directions) {
-        const newX = agentPosition.x + dx;
-        const newY = agentPosition.y + dy;
+    const queue = [{ x: startX, y: startY, path: [] }];
+    const visited = Array.from({ length: 4 }, () => Array(4).fill(false));
+    visited[startX][startY] = true;
 
-        // Check bounds and avoid hazards
-        if (newX >= 0 && newX < world.length && newY >= 0 && newY < world[newX].length) {
-            if (world[newX][newY] !== "pit") {
-                moves.push({ x: newX, y: newY, direction });
+    while (queue.length > 0) {
+        const { x, y, path } = queue.shift();
+
+        if (world[x][y] === "gold") {
+            return path;
+        }
+
+        for (const { dx, dy } of directions) {
+            const newX = x + dx;
+            const newY = y + dy;
+
+            if (newX >= 0 && newX < 4 && newY >= 0 && newY < 4 &&
+                !visited[newX][newY] && world[newX][newY] !== "pit" && world[newX][newY] !== "wumpus") {
+                visited[newX][newY] = true;
+                queue.push({ x: newX, y: newY, path: [...path, { x: newX, y: newY }] });
             }
         }
     }
 
-    return moves;
+    return []; // No path found
 }
 
-// Move the agent based on direction
-function moveAgent(newPosition) {
-    agentPosition = { x: newPosition.x, y: newPosition.y };
-    agentDirection = newPosition.direction; // Update the direction agent is facing
-    pathToGold.push(newPosition); // Store the path taken
+// Move the agent to the next position in the path
+function moveAgent(nextPosition) {
+    agentPosition = { x: nextPosition.x, y: nextPosition.y };
+    pathToGold.push(nextPosition);
     checkCell();
     drawWorld();
 }
@@ -120,12 +127,7 @@ function moveAgent(newPosition) {
 function checkCell() {
     const currentCell = world[agentPosition.x][agentPosition.y];
     
-    if (currentCell === "wumpus") {
-        // If the cell has a Wumpus, shoot it
-        shootArrow();
-        // After shooting, check the cell again
-        checkCell();
-    } else if (currentCell === "pit") {
+    if (currentCell === "pit") {
         alert("You fell into a pit! Game over.");
         resetGame();
     } else if (currentCell === "gold") {
@@ -141,42 +143,25 @@ function checkCell() {
     }
 }
 
-// Move towards the target while avoiding obstacles
+// AI Move to collect gold and return to start
 function aiMove() {
     if (isGameRunning) return; // Prevent multiple clicks
 
     isGameRunning = true; // Set the game to running
 
-    const goldPosition = findGoldPosition();
+    // Step 1: Find path to gold
+    const pathToGoldResult = findShortestPathToGold(agentPosition.x, agentPosition.y);
 
-    // If gold is found, move towards it
-    if (goldPosition) {
+    if (pathToGoldResult.length > 0) {
+        // Move agent step by step to the gold
         const interval = setInterval(() => {
-            const availableMoves = getAvailableMoves();
-
-            // Prioritize moving to the gold position if possible
-            const targetMove = availableMoves.find(move => 
-                move.x === goldPosition.x && move.y === goldPosition.y
-            );
-
-            if (targetMove) {
-                moveAgent(targetMove);
-            } else if (availableMoves.length > 0) {
-                // If no direct move to gold, move randomly from available moves
-                const randomMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
-                moveAgent(randomMove);
+            if (pathToGoldResult.length > 0) {
+                const nextMove = pathToGoldResult.shift();
+                moveAgent(nextMove);
             } else {
-                alert("No available moves! AI is stuck.");
                 clearInterval(interval);
-                isGameRunning = false;
-            }
-
-            // Check if the agent has reached the gold
-            if (agentPosition.x === goldPosition.x && agentPosition.y === goldPosition.y) {
-                goldCollected = true;
-                alert("AI collected the gold! Returning to start.");
-                clearInterval(interval); // Stop moving towards gold
-                returnToStart(); // Move back to start position
+                alert("AI collected the gold! Now returning to start.");
+                returnToStart();
             }
         }, 1000); // Move every second
     } else {
@@ -185,65 +170,38 @@ function aiMove() {
     }
 }
 
-// Find the gold position
-function findGoldPosition() {
-    for (let row = 0; row < world.length; row++) {
-        for (let col = 0; col < world[row].length; col++) {
-            if (world[row][col] === "gold") {
-                return { x: row, y: col };
-            }
-        }
-    }
-    return null; // No gold found
-}
-
 // Return to starting position after collecting gold
 function returnToStart() {
-    if (pathToGold.length === 0) {
-        alert("AI has returned to the start position.");
-        isGameRunning = false;
-        return;
-    }
+    const pathToStartResult = findShortestPathToGold(agentPosition.x, agentPosition.y);
 
-    const startX = 3;
-    const startY = 0;
-    const interval = setInterval(() => {
-        const availableMoves = getAvailableMoves();
-
-        // Find the next best move towards the start
-        const returnMove = availableMoves.find(move => 
-            move.x === startX && move.y === startY
-        );
-
-        if (returnMove) {
-            moveAgent(returnMove); // Move back to start
-        } else if (availableMoves.length > 0) {
-            const randomMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
-            moveAgent(randomMove);
-        } else {
-            alert("No available moves!");
-            clearInterval(interval);
-            isGameRunning = false;
-        }
-    }, 1000); // Move every second
-}
-
-// Shoot an arrow to deal with the Wumpus
-function shootArrow() {
-    if (arrowCount > 0) {
-        arrowCount--;
-        updateArrowCount();
-        alert("Arrow shot at Wumpus!");
-    } else {
-        alert("No arrows left!");
+    if (pathToStartResult.length > 0) {
+        // Move agent step by step back to the start
+        const interval = setInterval(() => {
+            if (pathToStartResult.length > 0) {
+                const nextMove = pathToStartResult.shift();
+                moveAgent(nextMove); // Move back to start
+            } else {
+                clearInterval(interval);
+                alert("AI has returned to the start position.");
+                isGameRunning = false;
+            }
+        }, 1000); // Move every second
     }
 }
 
-// Add event listener to the start button
-startButton.addEventListener("click", () => {
-    if (!isGameRunning) {
-        generateRandomWorld(); // Generate a new random world on start
-        drawWorld(); // Draw the world with the agent
-        aiMove(); // Start AI movement
-    }
-});
+// Reset the game to initial state
+function resetGame() {
+    generateRandomWorld();
+    drawWorld();
+    goldCollected = false;
+    isGameRunning = false;
+    pathToGold = [];
+    updateArrowCount(); // Reset arrow count
+}
+
+// Initialize the world and game state
+generateRandomWorld();
+drawWorld();
+
+// Event listeners
+startButton.addEventListener("click", aiMove);
